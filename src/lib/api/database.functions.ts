@@ -70,7 +70,13 @@ export const getHomeData = createServerFn({ method: "GET" }).handler(async () =>
   const db = getTursoClient();
   const [profileResult, linksResult, pagesResult] = await Promise.all([
     db.execute(
-      `SELECT id, display_name, bio, avatar_url, whatsapp FROM profiles ORDER BY updated_at DESC LIMIT 1`,
+      `SELECT id, display_name, bio,
+        CASE WHEN avatar_url IS NOT NULL
+          THEN '/api/media/profile/' || id
+          ELSE NULL
+        END AS avatar_url,
+        whatsapp
+      FROM profiles ORDER BY updated_at DESC LIMIT 1`,
     ),
     db.execute(`SELECT id, user_id, title, icon, kind, url, page_id, position, is_active
       FROM links WHERE is_active = 1 ORDER BY position`),
@@ -97,12 +103,20 @@ export const getPublicPage = createServerFn({ method: "GET" })
 
     const [itemsResult, profileResult] = await Promise.all([
       db.execute({
-        sql: `SELECT id, page_id, user_id, image_url, title, description, price_cents, position
+        sql: `SELECT id, page_id, user_id,
+          '/api/media/item/' || id AS image_url,
+          title, description, price_cents, position
           FROM items WHERE page_id = ? ORDER BY position`,
         args: [page.id],
       }),
       db.execute({
-        sql: `SELECT id, display_name, bio, avatar_url, whatsapp FROM profiles WHERE id = ? LIMIT 1`,
+        sql: `SELECT id, display_name, bio,
+          CASE WHEN avatar_url IS NOT NULL
+            THEN '/api/media/profile/' || id
+            ELSE NULL
+          END AS avatar_url,
+          whatsapp
+        FROM profiles WHERE id = ? LIMIT 1`,
         args: [page.user_id],
       }),
     ]);
@@ -119,7 +133,13 @@ export const getAdminProfile = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureProfile(context.userId, context.email);
     const result = await getTursoClient().execute({
-      sql: `SELECT id, display_name, bio, avatar_url, whatsapp FROM profiles WHERE id = ? LIMIT 1`,
+      sql: `SELECT id, display_name, bio,
+        CASE WHEN avatar_url IS NOT NULL
+          THEN '/api/media/profile/' || id
+          ELSE NULL
+        END AS avatar_url,
+        whatsapp
+      FROM profiles WHERE id = ? LIMIT 1`,
       args: [context.userId],
     });
     return rowsAs<Profile>(result.rows)[0] ?? null;
@@ -130,11 +150,21 @@ export const updateProfile = createServerFn({ method: "POST" })
   .validator(profilePatchSchema)
   .handler(async ({ data, context }) => {
     await ensureProfile(context.userId, context.email);
+    const keepCurrentAvatar = data.avatar_url === `/api/media/profile/${context.userId}`;
     await getTursoClient().execute({
       sql: `UPDATE profiles
-        SET display_name = ?, bio = ?, whatsapp = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP
+        SET display_name = ?, bio = ?, whatsapp = ?,
+          avatar_url = CASE WHEN ? THEN avatar_url ELSE ? END,
+          updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`,
-      args: [data.display_name, data.bio, data.whatsapp, data.avatar_url, context.userId],
+      args: [
+        data.display_name,
+        data.bio,
+        data.whatsapp,
+        Number(keepCurrentAvatar),
+        data.avatar_url,
+        context.userId,
+      ],
     });
   });
 
@@ -286,7 +316,9 @@ export const getAdminItems = createServerFn({ method: "GET" })
   .validator(z.object({ pageId: idSchema }))
   .handler(async ({ data, context }) => {
     const result = await getTursoClient().execute({
-      sql: `SELECT id, page_id, user_id, image_url, title, description, price_cents, position
+      sql: `SELECT id, page_id, user_id,
+        '/api/media/item/' || id AS image_url,
+        title, description, price_cents, position
         FROM items WHERE page_id = ? AND user_id = ? ORDER BY position`,
       args: [data.pageId, context.userId],
     });
