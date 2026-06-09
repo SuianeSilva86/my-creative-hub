@@ -163,12 +163,24 @@ export const createLink = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .validator(z.object({ position: z.number().int() }))
   .handler(async ({ data, context }) => {
+    const id = crypto.randomUUID();
     await ensureProfile(context.userId, context.email);
     await getTursoClient().execute({
       sql: `INSERT INTO links (id, user_id, title, icon, kind, url, position)
         VALUES (?, ?, 'Novo link', 'link', 'external', 'https://', ?)`,
-      args: [crypto.randomUUID(), context.userId, data.position],
+      args: [id, context.userId, data.position],
     });
+    return {
+      id,
+      user_id: context.userId,
+      title: "Novo link",
+      icon: "link",
+      kind: "external",
+      url: "https://",
+      page_id: null,
+      position: data.position,
+      is_active: true,
+    } satisfies LinkRow;
   });
 
 export const updateLink = createServerFn({ method: "POST" })
@@ -182,6 +194,29 @@ export const updateLink = createServerFn({ method: "POST" })
         WHERE id = ? AND user_id = ?`,
       args: [...update.args, data.id, context.userId],
     });
+  });
+
+export const updateLinks = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator(
+    z.object({
+      links: z.array(z.object({ id: idSchema, patch: linkPatchSchema })).max(100),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const statements = data.links.flatMap(({ id, patch }) => {
+      const update = placeholders(patch);
+      if (!update.entries.length) return [];
+      return [
+        {
+          sql: `UPDATE links SET ${update.assignments}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND user_id = ?`,
+          args: [...update.args, id, context.userId],
+        },
+      ];
+    });
+    if (!statements.length) return;
+    await getTursoClient().batch(statements, "write");
   });
 
 export const deleteLink = createServerFn({ method: "POST" })
@@ -292,6 +327,29 @@ export const updateItem = createServerFn({ method: "POST" })
         WHERE id = ? AND user_id = ?`,
       args: [...update.args, data.id, context.userId],
     });
+  });
+
+export const updateItems = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator(
+    z.object({
+      items: z.array(z.object({ id: idSchema, patch: itemPatchSchema })).max(500),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const statements = data.items.flatMap(({ id, patch }) => {
+      const update = placeholders(patch);
+      if (!update.entries.length) return [];
+      return [
+        {
+          sql: `UPDATE items SET ${update.assignments}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND user_id = ?`,
+          args: [...update.args, id, context.userId],
+        },
+      ];
+    });
+    if (!statements.length) return;
+    await getTursoClient().batch(statements, "write");
   });
 
 export const deleteItem = createServerFn({ method: "POST" })

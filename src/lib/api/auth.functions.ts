@@ -19,6 +19,11 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
   };
 });
 
+export const getAuthStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await getAdminSession();
+  return { authenticated: Boolean(session.data.userId) };
+});
+
 export const login = createServerFn({ method: "POST" })
   .validator(credentialsSchema)
   .handler(async ({ data }) => {

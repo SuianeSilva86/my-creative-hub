@@ -42,6 +42,7 @@
 
 :root {
   --radius: 1rem;
+  color-scheme: light;
 
   /* Soft, dreamy rose & lavender palette */
   --background: oklch(0.985 0.012 350);
@@ -52,10 +53,10 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.28 0.05 320);
 
-  --primary: oklch(0.62 0.16 310);          /* lavender */
+  --primary: oklch(0.62 0.16 310); /* lavender */
   --primary-foreground: oklch(0.99 0.005 320);
 
-  --secondary: oklch(0.94 0.04 350);        /* blush */
+  --secondary: oklch(0.94 0.04 350); /* blush */
   --secondary-foreground: oklch(0.35 0.08 330);
 
   --muted: oklch(0.96 0.018 340);
@@ -76,14 +77,16 @@
   --rose-deep: oklch(0.55 0.18 0);
 
   --gradient-soft: linear-gradient(135deg, oklch(0.96 0.045 355), oklch(0.92 0.07 320));
-  --gradient-hero: radial-gradient(at 30% 10%, oklch(0.92 0.07 350) 0%, transparent 55%),
-                   radial-gradient(at 80% 80%, oklch(0.88 0.09 290) 0%, transparent 50%),
-                   linear-gradient(180deg, oklch(0.985 0.012 350), oklch(0.96 0.03 320));
+  --gradient-hero:
+    radial-gradient(at 30% 10%, oklch(0.92 0.07 350) 0%, transparent 55%),
+    radial-gradient(at 80% 80%, oklch(0.88 0.09 290) 0%, transparent 50%),
+    linear-gradient(180deg, oklch(0.985 0.012 350), oklch(0.96 0.03 320));
   --shadow-soft: 0 8px 30px -8px oklch(0.7 0.15 320 / 0.25);
   --shadow-glow: 0 12px 40px -10px oklch(0.6 0.2 320 / 0.35);
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.18 0.03 320);
   --foreground: oklch(0.97 0.015 340);
   --card: oklch(0.22 0.04 320);
@@ -103,13 +106,42 @@
   --border: oklch(0.3 0.04 320);
   --input: oklch(0.3 0.04 320);
   --ring: oklch(0.78 0.13 310);
+  --blush: oklch(0.34 0.08 350);
+  --lavender: oklch(0.6 0.12 310);
+  --rose-deep: oklch(0.72 0.16 0);
+  --gradient-soft: linear-gradient(135deg, oklch(0.32 0.07 350), oklch(0.28 0.08 310));
+  --gradient-hero:
+    radial-gradient(at 30% 10%, oklch(0.3 0.08 350) 0%, transparent 55%),
+    radial-gradient(at 80% 80%, oklch(0.27 0.09 290) 0%, transparent 50%),
+    linear-gradient(180deg, oklch(0.18 0.03 320), oklch(0.15 0.04 300));
+  --shadow-soft: 0 8px 30px -8px oklch(0.08 0.04 320 / 0.65);
+  --shadow-glow: 0 12px 40px -10px oklch(0.65 0.18 310 / 0.35);
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html, body { background: var(--gradient-hero); background-attachment: fixed; color: var(--color-foreground); }
-  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    background: var(--background);
+  }
+  html,
+  body {
+    background: var(--gradient-hero);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
 }
 
 @utility soft-card {
@@ -131,7 +163,10 @@
   box-shadow: var(--shadow-soft);
   font-weight: 600;
   color: var(--foreground);
-  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    background 200ms ease;
   text-decoration: none;
 }
 @utility link-tile-hover {

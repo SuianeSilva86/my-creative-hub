@@ -14,8 +14,8 @@ import {
   getAdminLinks,
   getAdminPages,
   getAdminProfile,
-  updateItem as updateItemData,
-  updateLink,
+  updateItems,
+  updateLinks,
   updatePage as updatePageData,
   updateProfile,
 } from "@/lib/api/database.functions";
@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ExternalLink, LogOut, ImageIcon } from "lucide-react";
+import { Trash2, Plus, ExternalLink, LogOut, ImageIcon, Save } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -268,50 +268,102 @@ function LinksTab({ userId }: { userId: string }) {
     queryKey: ["admin-links", userId],
     queryFn: () => getAdminLinks(),
   });
+  const pages = data?.pages ?? [];
+  const [links, setLinks] = useState<LinkRow[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!data) return;
+    setLinks(data.links);
+    setHasChanges(false);
+  }, [data]);
 
   async function addLink() {
-    const pos = (data?.links.length ?? 0) + 1;
+    const pos = links.length + 1;
     try {
-      await createLink({ data: { position: pos } });
-      qc.invalidateQueries({ queryKey: ["admin-links", userId] });
+      const link = await createLink({ data: { position: pos } });
+      setLinks((current) => [...current, link]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao criar o link");
     }
   }
 
-  async function update(id: string, patch: Partial<LinkRow>) {
+  function updateDraft(id: string, patch: Partial<LinkRow>) {
+    setLinks((current) => current.map((link) => (link.id === id ? { ...link, ...patch } : link)));
+    setHasChanges(true);
+  }
+
+  async function saveLinks() {
+    setSaving(true);
     try {
-      await updateLink({ data: { id, patch } });
-      qc.invalidateQueries({ queryKey: ["admin-links", userId] });
-      qc.invalidateQueries({ queryKey: ["home"] });
+      await updateLinks({
+        data: {
+          links: links.map((link) => ({
+            id: link.id,
+            patch: {
+              title: link.title,
+              icon: link.icon,
+              kind: link.kind,
+              url: link.url,
+              page_id: link.page_id,
+              position: link.position,
+              is_active: link.is_active,
+            },
+          })),
+        },
+      });
+      setHasChanges(false);
+      toast.success("Links salvos!");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin-links", userId] }),
+        qc.invalidateQueries({ queryKey: ["home"] }),
+      ]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar o link");
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar os links");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function remove(id: string) {
     if (!confirm("Apagar este link?")) return;
-    await deleteLink({ data: { id } });
-    qc.invalidateQueries({ queryKey: ["admin-links", userId] });
-    qc.invalidateQueries({ queryKey: ["home"] });
+    try {
+      await deleteLink({ data: { id } });
+      setLinks((current) => current.filter((link) => link.id !== id));
+      qc.invalidateQueries({ queryKey: ["home"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao apagar o link");
+    }
   }
 
   return (
     <div className="space-y-3">
-      <Button onClick={addLink} className="w-full">
-        <Plus className="h-4 w-4 mr-2" /> Adicionar link
-      </Button>
-      {data?.links.map((link) => (
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button onClick={addLink} variant="outline">
+          <Plus className="h-4 w-4 mr-2" /> Adicionar link
+        </Button>
+        <Button onClick={saveLinks} disabled={!hasChanges || saving}>
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "Salvando…" : "Salvar links"}
+        </Button>
+      </div>
+      {hasChanges && (
+        <p className="text-xs text-muted-foreground text-center">
+          Você tem alterações ainda não salvas.
+        </p>
+      )}
+      {links.map((link) => (
         <div key={link.id} className="soft-card p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Switch
               checked={link.is_active}
-              onCheckedChange={(v) => update(link.id, { is_active: v })}
+              onCheckedChange={(v) => updateDraft(link.id, { is_active: v })}
             />
             <Input
               className="flex-1"
               value={link.title}
-              onChange={(e) => update(link.id, { title: e.target.value })}
+              onChange={(e) => updateDraft(link.id, { title: e.target.value })}
             />
             <Button variant="ghost" size="icon" onClick={() => remove(link.id)}>
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -322,7 +374,7 @@ function LinksTab({ userId }: { userId: string }) {
               <Label className="text-xs">Tipo</Label>
               <Select
                 value={link.kind}
-                onValueChange={(v) => update(link.id, { kind: v as "external" | "page" })}
+                onValueChange={(v) => updateDraft(link.id, { kind: v as "external" | "page" })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -337,7 +389,7 @@ function LinksTab({ userId }: { userId: string }) {
               <Label className="text-xs">Ícone (Lucide)</Label>
               <Input
                 value={link.icon ?? ""}
-                onChange={(e) => update(link.id, { icon: e.target.value })}
+                onChange={(e) => updateDraft(link.id, { icon: e.target.value })}
                 placeholder="instagram"
               />
             </div>
@@ -347,7 +399,7 @@ function LinksTab({ userId }: { userId: string }) {
               <Label className="text-xs">URL</Label>
               <Input
                 value={link.url ?? ""}
-                onChange={(e) => update(link.id, { url: e.target.value })}
+                onChange={(e) => updateDraft(link.id, { url: e.target.value })}
                 placeholder="https://instagram.com/seu"
               />
             </div>
@@ -356,20 +408,20 @@ function LinksTab({ userId }: { userId: string }) {
               <Label className="text-xs">Página</Label>
               <Select
                 value={link.page_id ?? ""}
-                onValueChange={(v) => update(link.id, { page_id: v })}
+                onValueChange={(v) => updateDraft(link.id, { page_id: v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma página" />
                 </SelectTrigger>
                 <SelectContent>
-                  {data.pages.map((p) => (
+                  {pages.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {data.pages.length === 0 && (
+              {pages.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Crie uma página na aba "Páginas".
                 </p>
@@ -424,8 +476,10 @@ function PagesTab({ userId }: { userId: string }) {
     try {
       await updatePageData({ data: { id, patch } });
       qc.invalidateQueries({ queryKey: ["admin-pages", userId] });
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao atualizar a página");
+      return false;
     }
   }
 
@@ -477,6 +531,11 @@ function PagesTab({ userId }: { userId: string }) {
 }
 
 // ============ ITEMS EDITOR ===========
+type ItemDraft = ItemRow & {
+  signedUrl: string;
+  priceInput: string;
+};
+
 function ItemsEditor({
   page,
   onBack,
@@ -485,13 +544,18 @@ function ItemsEditor({
 }: {
   page: PageRow;
   onBack: () => void;
-  onUpdate: (id: string, patch: Partial<PageRow>) => Promise<void>;
+  onUpdate: (id: string, patch: Partial<PageRow>) => Promise<boolean>;
   onDelete: () => void;
 }) {
   const qc = useQueryClient();
   const [title, setTitle] = useState(page.title);
   const [description, setDescription] = useState(page.description ?? "");
   const [uploading, setUploading] = useState(false);
+  const [savingPage, setSavingPage] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
+  const [pageHasChanges, setPageHasChanges] = useState(false);
+  const [itemsHaveChanges, setItemsHaveChanges] = useState(false);
+  const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
 
   const { data: items } = useQuery({
     queryKey: ["admin-items", page.id],
@@ -502,9 +566,24 @@ function ItemsEditor({
     },
   });
 
+  useEffect(() => {
+    if (!items) return;
+    setItemDrafts(
+      items.map((item) => ({
+        ...item,
+        priceInput: item.price_cents != null ? (item.price_cents / 100).toString() : "",
+      })),
+    );
+    setItemsHaveChanges(false);
+  }, [items]);
+
   async function uploadFiles(files: FileList) {
+    if (itemsHaveChanges) {
+      toast.error("Salve as alterações das fotos antes de adicionar novas.");
+      return;
+    }
     setUploading(true);
-    let pos = items?.length ?? 0;
+    let pos = itemDrafts.length;
     for (const file of Array.from(files)) {
       pos++;
       try {
@@ -527,24 +606,65 @@ function ItemsEditor({
     toast.success("Itens enviados!");
   }
 
-  async function updateItem(id: string, patch: Partial<ItemRow>) {
+  function updateItemDraft(id: string, patch: Partial<ItemDraft>) {
+    setItemDrafts((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+    setItemsHaveChanges(true);
+  }
+
+  async function saveItemDrafts() {
+    setSavingItems(true);
     try {
-      await updateItemData({ data: { id, patch } });
-      qc.invalidateQueries({ queryKey: ["admin-items", page.id] });
+      await updateItems({
+        data: {
+          items: itemDrafts.map((item) => ({
+            id: item.id,
+            patch: {
+              title: item.title,
+              description: item.description,
+              price_cents: item.price_cents,
+              position: item.position,
+            },
+          })),
+        },
+      });
+      setItemsHaveChanges(false);
+      toast.success(page.kind === "shop" ? "Produtos salvos!" : "Fotos salvas!");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin-items", page.id] }),
+        qc.invalidateQueries({ queryKey: ["page"] }),
+      ]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar o item");
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar os itens");
+    } finally {
+      setSavingItems(false);
     }
   }
 
   async function removeItem(id: string) {
     if (!confirm("Apagar este item?")) return;
-    await deleteItem({ data: { id } });
-    qc.invalidateQueries({ queryKey: ["admin-items", page.id] });
+    try {
+      await deleteItem({ data: { id } });
+      setItemDrafts((current) => current.filter((item) => item.id !== id));
+      qc.invalidateQueries({ queryKey: ["page"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao apagar o item");
+    }
   }
 
   async function savePageMeta() {
-    await onUpdate(page.id, { title, description });
-    toast.success("Página salva!");
+    setSavingPage(true);
+    try {
+      const saved = await onUpdate(page.id, { title, description });
+      if (!saved) return;
+      setPageHasChanges(false);
+      qc.invalidateQueries({ queryKey: ["home"] });
+      qc.invalidateQueries({ queryKey: ["page"] });
+      toast.success("Página salva!");
+    } finally {
+      setSavingPage(false);
+    }
   }
 
   return (
@@ -556,15 +676,33 @@ function ItemsEditor({
       <div className="soft-card p-5 space-y-3">
         <div>
           <Label>Título da página</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setPageHasChanges(true);
+            }}
+          />
         </div>
         <div>
           <Label>Descrição</Label>
-          <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Textarea
+            rows={2}
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setPageHasChanges(true);
+            }}
+          />
         </div>
         <div className="flex gap-2">
-          <Button onClick={savePageMeta} className="flex-1">
-            Salvar página
+          <Button
+            onClick={savePageMeta}
+            disabled={!pageHasChanges || savingPage}
+            className="flex-1"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {savingPage ? "Salvando…" : "Salvar página"}
           </Button>
           <Button variant="destructive" onClick={onDelete}>
             <Trash2 className="h-4 w-4" />
@@ -573,11 +711,19 @@ function ItemsEditor({
       </div>
 
       <div className="soft-card p-5">
-        <Label className="cursor-pointer block">
+        <Label
+          className={
+            itemsHaveChanges ? "cursor-not-allowed block opacity-60" : "cursor-pointer block"
+          }
+        >
           <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary transition">
             <Plus className="h-6 w-6 mx-auto mb-2 text-primary" />
             <span className="text-sm">
-              {uploading ? "Enviando…" : "Adicionar fotos (várias de uma vez)"}
+              {itemsHaveChanges
+                ? "Salve as alterações antes de adicionar fotos"
+                : uploading
+                  ? "Enviando…"
+                  : "Adicionar fotos (várias de uma vez)"}
             </span>
           </div>
           <input
@@ -585,13 +731,29 @@ function ItemsEditor({
             multiple
             accept="image/*"
             hidden
+            disabled={uploading || itemsHaveChanges}
             onChange={(e) => e.target.files && uploadFiles(e.target.files)}
           />
         </Label>
       </div>
 
+      <Button
+        onClick={saveItemDrafts}
+        disabled={!itemsHaveChanges || savingItems}
+        className="w-full"
+      >
+        <Save className="h-4 w-4 mr-2" />
+        {savingItems ? "Salvando…" : page.kind === "shop" ? "Salvar produtos" : "Salvar fotos"}
+      </Button>
+
+      {itemsHaveChanges && (
+        <p className="text-xs text-muted-foreground text-center">
+          Os títulos e preços só serão enviados ao clicar em salvar.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {items?.map((it) => (
+        {itemDrafts.map((it) => (
           <div key={it.id} className="soft-card overflow-hidden">
             {it.signedUrl && (
               <img src={it.signedUrl} alt="" className="aspect-square w-full object-cover" />
@@ -600,19 +762,22 @@ function ItemsEditor({
               <Input
                 className="text-xs h-8"
                 placeholder="Título"
-                defaultValue={it.title ?? ""}
-                onBlur={(e) => updateItem(it.id, { title: e.target.value })}
+                value={it.title ?? ""}
+                onChange={(e) => updateItemDraft(it.id, { title: e.target.value })}
               />
               {page.kind === "shop" && (
                 <Input
                   className="text-xs h-8"
                   placeholder="Preço em R$ (ex 49.90)"
-                  type="number"
-                  step="0.01"
-                  defaultValue={it.price_cents != null ? (it.price_cents / 100).toString() : ""}
-                  onBlur={(e) => {
-                    const v = parseFloat(e.target.value);
-                    updateItem(it.id, { price_cents: isNaN(v) ? null : Math.round(v * 100) });
+                  inputMode="decimal"
+                  value={it.priceInput}
+                  onChange={(e) => {
+                    const priceInput = e.target.value;
+                    const v = parseFloat(priceInput.replace(",", "."));
+                    updateItemDraft(it.id, {
+                      priceInput,
+                      price_cents: isNaN(v) ? null : Math.round(v * 100),
+                    });
                   }}
                 />
               )}

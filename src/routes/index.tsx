@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { getAuthStatus } from "@/lib/api/auth.functions";
 import { getHomeData } from "@/lib/api/database.functions";
 import { signMediaUrl } from "@/lib/media";
 import {
@@ -27,6 +28,11 @@ const homeQueryOptions = queryOptions({
   queryFn: () => getHomeData(),
 });
 
+const authStatusQueryOptions = queryOptions({
+  queryKey: ["auth-status"],
+  queryFn: () => getAuthStatus(),
+});
+
 const iconMap: Record<string, LucideIcon> = {
   camera: Camera,
   facebook: Facebook,
@@ -45,7 +51,11 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 export const Route = createFileRoute("/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(homeQueryOptions),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(homeQueryOptions),
+      context.queryClient.fetchQuery(authStatusQueryOptions),
+    ]),
   head: () => ({
     meta: [
       { title: "Meu link — todos os meus lugares" },
@@ -62,6 +72,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const { data } = useSuspenseQuery(homeQueryOptions);
+  const { data: auth } = useSuspenseQuery(authStatusQueryOptions);
 
   const [avatar, setAvatar] = useState<string>("");
   useEffect(() => {
@@ -73,12 +84,16 @@ function Home() {
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="soft-card max-w-md p-10 text-center">
           <h1 className="text-3xl mb-3">Bem-vinda 💜</h1>
-          <p className="text-muted-foreground mb-6">
-            Seu site ainda não foi configurado. Faça login no painel pra começar.
+          <p className="text-muted-foreground">
+            {auth.authenticated
+              ? "Seu site ainda não foi configurado."
+              : "Este site ainda não foi configurado."}
           </p>
-          <Link to="/auth" className="link-tile link-tile-hover justify-center">
-            Entrar no painel
-          </Link>
+          {auth.authenticated && (
+            <Link to="/admin" className="link-tile link-tile-hover justify-center mt-6">
+              Abrir painel
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -157,9 +172,11 @@ function Home() {
           })}
         </div>
 
-        <Link to="/auth" className="mt-10 text-xs text-muted-foreground/70 hover:text-primary">
-          editar
-        </Link>
+        {auth.authenticated && (
+          <Link to="/admin" className="mt-10 text-xs text-muted-foreground/70 hover:text-primary">
+            editar
+          </Link>
+        )}
       </div>
     </main>
   );
