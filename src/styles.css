@@ -1,0 +1,143 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-blush: var(--blush);
+  --color-lavender: var(--lavender);
+  --color-rose-deep: var(--rose-deep);
+
+  --font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Soft, dreamy rose & lavender palette */
+  --background: oklch(0.985 0.012 350);
+  --foreground: oklch(0.28 0.05 320);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.28 0.05 320);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.28 0.05 320);
+
+  --primary: oklch(0.62 0.16 310);          /* lavender */
+  --primary-foreground: oklch(0.99 0.005 320);
+
+  --secondary: oklch(0.94 0.04 350);        /* blush */
+  --secondary-foreground: oklch(0.35 0.08 330);
+
+  --muted: oklch(0.96 0.018 340);
+  --muted-foreground: oklch(0.5 0.04 320);
+
+  --accent: oklch(0.88 0.08 350);
+  --accent-foreground: oklch(0.32 0.08 330);
+
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.9 0.03 340);
+  --input: oklch(0.93 0.025 340);
+  --ring: oklch(0.62 0.16 310);
+
+  --blush: oklch(0.92 0.06 355);
+  --lavender: oklch(0.78 0.1 310);
+  --rose-deep: oklch(0.55 0.18 0);
+
+  --gradient-soft: linear-gradient(135deg, oklch(0.96 0.045 355), oklch(0.92 0.07 320));
+  --gradient-hero: radial-gradient(at 30% 10%, oklch(0.92 0.07 350) 0%, transparent 55%),
+                   radial-gradient(at 80% 80%, oklch(0.88 0.09 290) 0%, transparent 50%),
+                   linear-gradient(180deg, oklch(0.985 0.012 350), oklch(0.96 0.03 320));
+  --shadow-soft: 0 8px 30px -8px oklch(0.7 0.15 320 / 0.25);
+  --shadow-glow: 0 12px 40px -10px oklch(0.6 0.2 320 / 0.35);
+}
+
+.dark {
+  --background: oklch(0.18 0.03 320);
+  --foreground: oklch(0.97 0.015 340);
+  --card: oklch(0.22 0.04 320);
+  --card-foreground: oklch(0.97 0.015 340);
+  --popover: oklch(0.22 0.04 320);
+  --popover-foreground: oklch(0.97 0.015 340);
+  --primary: oklch(0.78 0.13 310);
+  --primary-foreground: oklch(0.2 0.04 320);
+  --secondary: oklch(0.3 0.05 330);
+  --secondary-foreground: oklch(0.97 0.015 340);
+  --muted: oklch(0.28 0.04 320);
+  --muted-foreground: oklch(0.75 0.03 340);
+  --accent: oklch(0.4 0.08 330);
+  --accent-foreground: oklch(0.97 0.015 340);
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.3 0.04 320);
+  --input: oklch(0.3 0.04 320);
+  --ring: oklch(0.78 0.13 310);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { background: var(--gradient-hero); background-attachment: fixed; color: var(--color-foreground); }
+  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+}
+
+@utility soft-card {
+  background: var(--card);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--border);
+}
+
+@utility link-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+  font-weight: 600;
+  color: var(--foreground);
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+  text-decoration: none;
+}
+@utility link-tile-hover {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+    background: var(--gradient-soft);
+  }
+}
