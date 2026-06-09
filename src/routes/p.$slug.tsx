@@ -91,6 +91,8 @@ function Gallery({ items, signed }: { items: ItemRow[]; signed: Record<string, s
             <button
               key={item.id}
               onClick={() => url && setOpen(url)}
+              onContextMenu={(event) => event.preventDefault()}
+              onDragStart={(event) => event.preventDefault()}
               className="mb-3 block w-full overflow-hidden rounded-2xl border border-border bg-card break-inside-avoid group"
             >
               {url ? (
@@ -100,7 +102,8 @@ function Gallery({ items, signed }: { items: ItemRow[]; signed: Record<string, s
                   loading={index < 4 ? "eager" : "lazy"}
                   fetchPriority={index === 0 ? "high" : "auto"}
                   decoding="async"
-                  className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
+                  draggable={false}
+                  className="pointer-events-none w-full h-auto select-none object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               ) : (
                 <div className="aspect-square bg-muted animate-pulse" />
@@ -112,9 +115,16 @@ function Gallery({ items, signed }: { items: ItemRow[]; signed: Record<string, s
       {open && (
         <div
           onClick={() => setOpen(null)}
+          onContextMenu={(event) => event.preventDefault()}
+          onDragStart={(event) => event.preventDefault()}
           className="fixed inset-0 z-50 bg-black/85 backdrop-blur flex items-center justify-center p-4 cursor-zoom-out"
         >
-          <img src={open} alt="" className="max-h-[92vh] max-w-full rounded-xl" />
+          <img
+            src={open}
+            alt=""
+            draggable={false}
+            className="pointer-events-none max-h-[92vh] max-w-full select-none rounded-xl"
+          />
         </div>
       )}
     </>
@@ -136,7 +146,12 @@ function Shop({
         const url = signed[item.image_url];
         const msg = `Oi! Tenho interesse em "${item.title || "uma peça"}"`;
         return (
-          <article key={item.id} className="soft-card overflow-hidden flex flex-col">
+          <article
+            key={item.id}
+            onContextMenu={(event) => event.preventDefault()}
+            onDragStart={(event) => event.preventDefault()}
+            className="soft-card overflow-hidden flex flex-col"
+          >
             {url ? (
               <img
                 src={url}
@@ -144,7 +159,8 @@ function Shop({
                 loading={index < 2 ? "eager" : "lazy"}
                 fetchPriority={index === 0 ? "high" : "auto"}
                 decoding="async"
-                className="aspect-square w-full object-cover"
+                draggable={false}
+                className="pointer-events-none aspect-square w-full select-none object-cover"
               />
             ) : (
               <div className="aspect-square w-full bg-muted animate-pulse" />

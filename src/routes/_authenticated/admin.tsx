@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -34,7 +35,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ExternalLink, LogOut, ImageIcon, Save } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  ExternalLink,
+  GripVertical,
+  ImageIcon,
+  LogOut,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -556,6 +568,8 @@ function ItemsEditor({
   const [pageHasChanges, setPageHasChanges] = useState(false);
   const [itemsHaveChanges, setItemsHaveChanges] = useState(false);
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
+  const [previewItem, setPreviewItem] = useState<ItemDraft | null>(null);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
   const { data: items } = useQuery({
     queryKey: ["admin-items", page.id],
@@ -611,6 +625,35 @@ function ItemsEditor({
       current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
     setItemsHaveChanges(true);
+  }
+
+  function setItemOrder(items: ItemDraft[]) {
+    setItemDrafts(items.map((item, index) => ({ ...item, position: index + 1 })));
+    setItemsHaveChanges(true);
+  }
+
+  function moveItem(id: string, offset: number) {
+    const currentIndex = itemDrafts.findIndex((item) => item.id === id);
+    const nextIndex = currentIndex + offset;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= itemDrafts.length) return;
+
+    const reordered = [...itemDrafts];
+    const [moved] = reordered.splice(currentIndex, 1);
+    reordered.splice(nextIndex, 0, moved);
+    setItemOrder(reordered);
+  }
+
+  function dropItem(targetId: string) {
+    if (!draggedItemId || draggedItemId === targetId) return;
+    const sourceIndex = itemDrafts.findIndex((item) => item.id === draggedItemId);
+    const targetIndex = itemDrafts.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reordered = [...itemDrafts];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+    setItemOrder(reordered);
+    setDraggedItemId(null);
   }
 
   async function saveItemDrafts() {
@@ -748,17 +791,92 @@ function ItemsEditor({
 
       {itemsHaveChanges && (
         <p className="text-xs text-muted-foreground text-center">
-          Os títulos e preços só serão enviados ao clicar em salvar.
+          A ordem, os títulos e os preços só serão enviados ao clicar em salvar.
+        </p>
+      )}
+
+      {itemDrafts.length > 1 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Arraste pelo ícone no computador ou use as setas para organizar.
         </p>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {itemDrafts.map((it) => (
-          <div key={it.id} className="soft-card overflow-hidden">
-            {it.signedUrl && (
-              <img src={it.signedUrl} alt="" className="aspect-square w-full object-cover" />
-            )}
+        {itemDrafts.map((it, index) => (
+          <div
+            key={it.id}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              dropItem(it.id);
+            }}
+            className={`soft-card overflow-hidden transition ${
+              draggedItemId === it.id ? "opacity-50 ring-2 ring-primary" : ""
+            }`}
+          >
+            <div className="relative">
+              {it.signedUrl && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(it)}
+                  className="group block w-full cursor-zoom-in"
+                  aria-label={`Pré-visualizar ${it.title || `imagem ${index + 1}`}`}
+                >
+                  <img
+                    src={it.signedUrl}
+                    alt={it.title ?? ""}
+                    draggable={false}
+                    className="aspect-square w-full object-cover"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100">
+                    <Eye className="h-6 w-6" />
+                  </span>
+                </button>
+              )}
+              <span className="absolute left-2 top-2 rounded-full bg-black/65 px-2 py-1 text-xs font-semibold text-white">
+                {index + 1}
+              </span>
+            </div>
             <div className="p-2 space-y-1">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", it.id);
+                    setDraggedItemId(it.id);
+                  }}
+                  onDragEnd={() => setDraggedItemId(null)}
+                  className="hidden sm:flex h-8 flex-1 cursor-grab items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                  aria-label={`Arrastar imagem ${index + 1}`}
+                  title="Arraste para mudar a ordem"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 flex-1"
+                  disabled={index === 0}
+                  onClick={() => moveItem(it.id, -1)}
+                  aria-label={`Mover imagem ${index + 1} para cima`}
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 flex-1"
+                  disabled={index === itemDrafts.length - 1}
+                  onClick={() => moveItem(it.id, 1)}
+                  aria-label={`Mover imagem ${index + 1} para baixo`}
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
               <Input
                 className="text-xs h-8"
                 placeholder="Título"
@@ -793,6 +911,22 @@ function ItemsEditor({
           </div>
         ))}
       </div>
+
+      <Dialog open={Boolean(previewItem)} onOpenChange={(open) => !open && setPreviewItem(null)}>
+        <DialogContent className="max-w-5xl border-0 bg-black/95 p-2 text-white">
+          <DialogTitle className="sr-only">
+            Pré-visualização de {previewItem?.title || "imagem"}
+          </DialogTitle>
+          {previewItem?.signedUrl && (
+            <img
+              src={previewItem.signedUrl}
+              alt={previewItem.title ?? ""}
+              draggable={false}
+              className="max-h-[85vh] w-full object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

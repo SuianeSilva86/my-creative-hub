@@ -38,10 +38,14 @@ export const Route = createFileRoute("/api/media/$kind/$id")({
         return new Response(Buffer.from(match[2], "base64"), {
           headers: {
             "content-type": match[1],
+            "content-disposition": "inline",
             "cache-control":
               kind === "item"
                 ? "public, max-age=31536000, immutable"
                 : "public, max-age=300, stale-while-revalidate=86400",
+            "cross-origin-resource-policy": "same-origin",
+            "referrer-policy": "no-referrer",
+            "x-robots-tag": "noindex, noimageindex, noarchive",
             "x-content-type-options": "nosniff",
           },
         });
