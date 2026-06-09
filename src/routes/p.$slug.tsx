@@ -1,25 +1,13 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { getPublicPage } from "@/lib/api/database.functions";
 import { signMany, formatBRL, buildWhatsappLink } from "@/lib/media";
 import type { ItemRow, PageRow, Profile } from "@/lib/types";
 
-export const Route = createFileRoute("/p/$slug")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `${params.slug} — Meu link` },
-      { name: "description", content: "Veja meus trabalhos." },
-    ],
-  }),
-  component: PageView,
-});
-
-function PageView() {
-  const { slug } = Route.useParams();
-
-  const { data, isLoading, isError } = useQuery({
+const publicPageQueryOptions = (slug: string) =>
+  queryOptions({
     queryKey: ["page", slug],
     queryFn: async () => {
       const result = await getPublicPage({ data: { slug } });
@@ -34,23 +22,21 @@ function PageView() {
     },
   });
 
-  if (isLoading)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Carregando…
-      </div>
-    );
-  if (isError || !data)
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="soft-card p-8 text-center max-w-sm">
-          <h1 className="text-2xl mb-2">Página não encontrada</h1>
-          <Link to="/" className="link-tile link-tile-hover justify-center mt-4">
-            Voltar
-          </Link>
-        </div>
-      </div>
-    );
+export const Route = createFileRoute("/p/$slug")({
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(publicPageQueryOptions(params.slug)),
+  head: ({ params }) => ({
+    meta: [
+      { title: `${params.slug} — Meu link` },
+      { name: "description", content: "Veja meus trabalhos." },
+    ],
+  }),
+  component: PageView,
+});
+
+function PageView() {
+  const { slug } = Route.useParams();
+  const { data } = useSuspenseQuery(publicPageQueryOptions(slug));
 
   const { page, items, signed, profile } = data;
 
@@ -99,7 +85,7 @@ function Gallery({ items, signed }: { items: ItemRow[]; signed: Record<string, s
   return (
     <>
       <div className="columns-2 sm:columns-3 gap-3 [column-fill:_balance]">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const url = signed[item.image_url];
           return (
             <button
@@ -111,7 +97,9 @@ function Gallery({ items, signed }: { items: ItemRow[]; signed: Record<string, s
                 <img
                   src={url}
                   alt={item.title ?? ""}
-                  loading="lazy"
+                  loading={index < 4 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  decoding="async"
                   className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               ) : (
@@ -144,7 +132,7 @@ function Shop({
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const url = signed[item.image_url];
         const msg = `Oi! Tenho interesse em "${item.title || "uma peça"}"`;
         return (
@@ -153,7 +141,9 @@ function Shop({
               <img
                 src={url}
                 alt={item.title ?? ""}
-                loading="lazy"
+                loading={index < 2 ? "eager" : "lazy"}
+                fetchPriority={index === 0 ? "high" : "auto"}
+                decoding="async"
                 className="aspect-square w-full object-cover"
               />
             ) : (

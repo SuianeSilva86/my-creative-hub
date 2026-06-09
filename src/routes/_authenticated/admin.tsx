@@ -42,6 +42,45 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
+const MAX_IMAGE_EDGE = 1600;
+const IMAGE_QUALITY = 0.82;
+
+async function optimizeImage(file: File) {
+  if (file.type === "image/svg+xml" || file.type === "image/gif") {
+    return { file, type: file.type };
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error("Não foi possível preparar a imagem.");
+  }
+
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const type = "image/webp";
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) =>
+        result ? resolve(result) : reject(new Error("Não foi possível comprimir a imagem.")),
+      type,
+      IMAGE_QUALITY,
+    );
+  });
+
+  return {
+    file: new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type }),
+    type,
+  };
+}
+
 async function fileToBase64(file: File) {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -135,8 +174,13 @@ function ProfileTab({ userId }: { userId: string }) {
 
   async function uploadAvatar(file: File) {
     try {
+      const optimized = await optimizeImage(file);
       const path = await uploadMedia({
-        data: { name: file.name, type: file.type, base64: await fileToBase64(file) },
+        data: {
+          name: optimized.file.name,
+          type: optimized.type,
+          base64: await fileToBase64(optimized.file),
+        },
       });
       setForm((f) => ({ ...f, avatar_url: path }));
       setAvatarUrl(path);
@@ -464,8 +508,13 @@ function ItemsEditor({
     for (const file of Array.from(files)) {
       pos++;
       try {
+        const optimized = await optimizeImage(file);
         const path = await uploadMedia({
-          data: { name: file.name, type: file.type, base64: await fileToBase64(file) },
+          data: {
+            name: optimized.file.name,
+            type: optimized.type,
+            base64: await fileToBase64(optimized.file),
+          },
         });
         await createItem({ data: { page_id: page.id, image_url: path, position: pos } });
       } catch (error) {

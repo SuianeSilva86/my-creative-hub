@@ -1,13 +1,51 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getHomeData } from "@/lib/api/database.functions";
 import { signMediaUrl } from "@/lib/media";
-import type { LinkRow, PageRow, Profile } from "@/lib/types";
-import * as LucideIcons from "lucide-react";
-import { ArrowUpRight } from "lucide-react";
+import {
+  ArrowUpRight,
+  Camera,
+  Facebook,
+  Github,
+  Globe,
+  Heart,
+  Image,
+  Instagram,
+  Link as LinkIcon,
+  Linkedin,
+  Mail,
+  Music,
+  Store,
+  Twitter,
+  Youtube,
+  type LucideIcon,
+} from "lucide-react";
+
+const homeQueryOptions = queryOptions({
+  queryKey: ["home"],
+  queryFn: () => getHomeData(),
+});
+
+const iconMap: Record<string, LucideIcon> = {
+  camera: Camera,
+  facebook: Facebook,
+  github: Github,
+  globe: Globe,
+  heart: Heart,
+  image: Image,
+  instagram: Instagram,
+  link: LinkIcon,
+  linkedin: Linkedin,
+  mail: Mail,
+  music: Music,
+  store: Store,
+  twitter: Twitter,
+  youtube: Youtube,
+};
 
 export const Route = createFileRoute("/")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(homeQueryOptions),
   head: () => ({
     meta: [
       { title: "Meu link — todos os meus lugares" },
@@ -23,23 +61,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["home"],
-    queryFn: () => getHomeData(),
-  });
+  const { data } = useSuspenseQuery(homeQueryOptions);
 
   const [avatar, setAvatar] = useState<string>("");
   useEffect(() => {
     if (data?.profile?.avatar_url) signMediaUrl(data.profile.avatar_url).then(setAvatar);
   }, [data?.profile?.avatar_url]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Carregando…
-      </div>
-    );
-  }
 
   if (!data?.profile) {
     return (
@@ -70,7 +97,14 @@ function Home() {
           />
           <div className="relative h-28 w-28 rounded-full overflow-hidden border-4 border-card shadow-[var(--shadow-glow)]">
             {avatar ? (
-              <img src={avatar} alt={profile.display_name} className="h-full w-full object-cover" />
+              <img
+                src={avatar}
+                alt={profile.display_name}
+                width={112}
+                height={112}
+                fetchPriority="high"
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="h-full w-full" style={{ background: "var(--gradient-soft)" }} />
             )}
@@ -87,11 +121,8 @@ function Home() {
             <p className="text-center text-sm text-muted-foreground">Nenhum link ainda.</p>
           )}
           {links.map((link) => {
-            const iconMap = LucideIcons as unknown as Record<
-              string,
-              React.ComponentType<{ className?: string }>
-            >;
-            const Icon = iconMap[cap(link.icon ?? "Link")] ?? LucideIcons.Link;
+            const iconKey = (link.icon ?? "link").toLowerCase().replace(/[^a-z]/g, "");
+            const Icon = iconMap[iconKey] ?? LinkIcon;
             if (link.kind === "external" && link.url) {
               return (
                 <a
@@ -132,8 +163,4 @@ function Home() {
       </div>
     </main>
   );
-}
-
-function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
